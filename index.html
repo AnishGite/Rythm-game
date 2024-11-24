@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rhythm Master</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --purple-glow: rgba(168, 85, 247, 0.2);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            overflow: hidden;
+        }
+
+        .game-title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            background: linear-gradient(to right, #a855f7, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+        }
+
+        #stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat {
+            font-size: 1.25rem;
+            padding: 0.5rem 1.5rem;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+            backdrop-filter: blur(4px);
+        }
+
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 500px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #111827, #1f2937);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            box-shadow: 0 0 20px var(--purple-glow);
+        }
+
+        .arrow {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            border-radius: 0.5rem;
+            background: linear-gradient(135deg, #a855f7, #ec4899);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            color: white;
+            transform: translateY(-50px);
+            transition: transform 3s linear;
+        }
+
+        .lane {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 48px;
+            border-left: 1px solid rgba(168, 85, 247, 0.1);
+            border-right: 1px solid rgba(168, 85, 247, 0.1);
+        }
+
+        #target-zone {
+            position: absolute;
+            bottom: 100px;
+            width: 100%;
+            height: 64px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(168, 85, 247, 0.3);
+            border-bottom: 1px solid rgba(168, 85, 247, 0.3);
+            backdrop-filter: blur(4px);
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 1rem;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            padding: 0 1rem;
+        }
+
+        .control-arrow {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            background-color: #1f2937;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1.5rem;
+        }
+
+        .control-arrow.active {
+            background-color: #374151;
+            transform: translateY(2px);
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
+        }
+
+        #feedback {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            top: 2rem;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 20;
+        }
+
+        .start-button {
+            padding: 1rem 2rem;
+            font-size: 1.25rem;
+            background: linear-gradient(135deg, #a855f7, #ec4899);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .start-button:hover {
+            transform: scale(1.05);
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .feedback-animation {
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .pulse {
+            animation: pulse 0.3s ease-in-out;
+        }
+
+        .perfect { color: #fbbf24; }
+        .good { color: #34d399; }
+        .miss { color: #f87171; }
+    </style>
+</head>
+<body>
+    <div class="game-title">Rhythm Master</div>
+    
+    <div id="stats">
+        <div class="stat">Score: <span id="score-value" style="color: #a855f7; font-weight: bold;">0</span></div>
+        <div class="stat">Combo: <span id="combo-value" style="color: #ec4899; font-weight: bold;">0</span>x</div>
+    </div>
+
+    <div id="game-container">
+        <div id="start-screen">
+            <h2 class="mb-4 text-2xl">Ready to Play?</h2>
+            <button class="start-button">Start Game</button>
+        </div>
+        <div id="feedback"></div>
+        <div id="target-zone"></div>
+        <div id="controls">
+            <div class="control-arrow" data-key="ArrowLeft">←</div>
+            <div class="control-arrow" data-key="ArrowDown">↓</div>
+            <div class="control-arrow" data-key="ArrowUp">↑</div>
+            <div class="control-arrow" data-key="ArrowRight">→</div>
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const scoreElement = document.getElementById('score-value');
+        const comboElement = document.getElementById('combo-value');
+        const feedbackElement = document.getElementById('feedback');
+        const targetZone = document.getElementById('target-zone');
+        const controls = document.querySelectorAll('.control-arrow');
+        const startScreen = document.getElementById('start-screen');
+        const startButton = document.querySelector('.start-button');
+
+        const ANIMATION_DURATION = 3000; // 3 seconds
+        const TARGET_ZONE_Y = targetZone.getBoundingClientRect().top - gameContainer.getBoundingClientRect().top;
+        const PERFECT_THRESHOLD = 20;
+        const GOOD_THRESHOLD = 40;
+        const SPAWN_INTERVAL = 2000; // 2 seconds between arrows
+
+        const arrows = ['←', '↓', '↑', '→'];
+        const keyMap = {
+            'ArrowLeft': '←',
+            'ArrowDown': '↓',
+            'ArrowUp': '↑',
+            'ArrowRight': '→'
+        };
+
+        let score = 0;
+        let combo = 0;
+        let gameActive = false;
+        let spawnInterval;
+        let difficulty = 1;
+        let lastSpawnTime = 0;
+        const MIN_SPAWN_INTERVAL = 500;
+
+        // Create lanes
+        arrows.forEach((_, index) => {
+            const lane = document.createElement('div');
+            lane.className = 'lane';
+            lane.style.left = `${75 + index * 65}px`;
+            gameContainer.appendChild(lane);
+        });
+
+        function startGame() {
+            score = 0;
+            combo = 0;
+            difficulty = 1;
+            scoreElement.textContent = '0';
+            comboElement.textContent = '0';
+            gameActive = true;
+            startScreen.style.display = 'none';
+            lastSpawnTime = Date.now();
+            spawnArrows();
+        }
+
+        function spawnArrows() {
+            if (!gameActive) return;
+            
+            const currentTime = Date.now();
+            if (currentTime - lastSpawnTime >= Math.max(MIN_SPAWN_INTERVAL, SPAWN_INTERVAL / difficulty)) {
+                createArrow();
+                lastSpawnTime = currentTime;
+            }
+            
+            requestAnimationFrame(spawnArrows);
+        }
+
+        function createArrow() {
+            if (!gameActive) return;
+            
+            const arrow = document.createElement('div');
+            arrow.className = 'arrow';
+            const arrowType = arrows[Math.floor(Math.random() * arrows.length)];
+            arrow.textContent = arrowType;
+            arrow.dataset.type = arrowType;
+            
+            const column = arrows.indexOf(arrowType);
+            arrow.style.left = `${75 + column * 65}px`;
+            arrow.style.transform = 'translateY(-50px)';
+            
+            gameContainer.appendChild(arrow);
+            
+            requestAnimationFrame(() => {
+                arrow.style.transform = `translateY(${gameContainer.clientHeight}px)`;
+            });
+            
+            setTimeout(() => {
+                if (arrow && arrow.parentNode) {
+                    arrow.remove();
+                    if (gameActive) {
+                        showFeedback('Miss!', 'miss');
+                        updateScore(-50);
+                        resetCombo();
+                    }
+                }
+            }, ANIMATION_DURATION + 100);
+        }
+
+        function updateScore(points) {
+            const comboMultiplier = Math.floor(combo / 10) + 1;
+            const finalPoints = points * comboMultiplier;
+            score += finalPoints;
+            scoreElement.textContent = score;
+            scoreElement.classList.add('pulse');
+            setTimeout(() => scoreElement.classList.remove('pulse'), 300);
+
+            // Increase difficulty based on score
+            difficulty = 1 + Math.floor(score / 1000) * 0.2;
+        }
+
+        function updateCombo() {
+            combo++;
+            comboElement.textContent = combo;
+            comboElement.classList.add('pulse');
+            setTimeout(() => comboElement.classList.remove('pulse'), 300);
+        }
+
+        function resetCombo() {
+            combo = 0;
+            comboElement.textContent = combo;
+        }
+
+        function showFeedback(text, className) {
+            feedbackElement.textContent = text;
+            feedbackElement.className = `feedback-animation ${className}`;
+            setTimeout(() => {
+                feedbackElement.textContent = '';
+                feedbackElement.className = '';
+            }, 500);
+        }
+
+        function checkHit(keyArrow) {
+            if (!gameActive) return;
+
+            const arrows = document.querySelectorAll('.arrow');
+            const targetZoneRect = targetZone.getBoundingClientRect();
+            const targetCenter = targetZoneRect.top + targetZoneRect.height / 2;
+            
+            let closestArrow = null;
+            let closestDistance = Infinity;
+            
+            arrows.forEach(arrow => {
+                if (arrow.dataset.type === keyArrow) {
+                    const arrowRect = arrow.getBoundingClientRect();
+                    const arrowCenter = arrowRect.top + arrowRect.height / 2;
+                    const distance = Math.abs(arrowCenter - targetCenter);
+                    
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestArrow = arrow;
+                    }
+                }
+            });
+            
+            if (closestArrow) {
+                if (closestDistance < PERFECT_THRESHOLD) {
+                    showFeedback('Perfect!', 'perfect');
+                    updateScore(100);
+                    updateCombo();
+                    closestArrow.remove();
+                    return;
+                } else if (closestDistance < GOOD_THRESHOLD) {
+                    showFeedback('Good!', 'good');
+                    updateScore(50);
+                    updateCombo();
+                    closestArrow.remove();
+                    return;
+                }
+            }
+            
+            showFeedback('Miss!', 'miss');
+            updateScore(-50);
+            resetCombo();
+        }
+
+        // Event Listeners
+        startButton.addEventListener('click', startGame);
+
+        document.addEventListener('keydown', (event) => {
+            if (keyMap[event.key]) {
+                const control = document.querySelector(`[data-key="${event.key}"]`);
+                control.classList.add('active');
+                checkHit(keyMap[event.key]);
+            } else if (event.code === 'Space' && !gameActive) {
+                startGame();
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (keyMap[event.key]) {
+                const control = document.querySelector(`[data-key="${event.key}"]`);
+                control.classList.remove('active');
+            }
+        });
+
+        controls.forEach(control => {
+            control.addEventListener('mousedown', () => {
+                if (!gameActive) return;
+                const key = control.dataset.key;
+                checkHit(keyMap[key]);
+                control.classList.add('active');
+            });
+
+            control.addEventListener('mouseup', () => {
+                control.classList.remove('active');
+            });
+
+            control.addEventListener('mouseleave', () => {
+                control.classList.remove('active');
+            });
+        });
+    </script>
+</body>
+</html>
